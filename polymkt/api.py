@@ -2,6 +2,7 @@
 
 - Gamma API (market/event metadata): https://gamma-api.polymarket.com
 - CLOB API (price history):          https://clob.polymarket.com
+- Data API (trades, positions, leaderboard): https://data-api.polymarket.com
 """
 import time
 
@@ -9,6 +10,7 @@ import requests
 
 GAMMA = "https://gamma-api.polymarket.com"
 CLOB = "https://clob.polymarket.com"
+DATA_API = "https://data-api.polymarket.com"
 
 _session = requests.Session()
 _session.headers["User-Agent"] = "polymkt-research/0.1"

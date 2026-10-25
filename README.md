@@ -22,6 +22,12 @@ python -m polymkt.fetch_prices             # -> data/prices.parquet
 
 # 3. Report and charts
 python -m polymkt.analyze                  # -> reports/summary.md + reports/*.png
+
+# 4. Every single trade of $1M+ (scans the ~9.5K markets with $1M+ volume, ~5 min)
+python -m polymkt.fetch_big_trades         # -> reports/big_trades.md, big_trades.csv
+
+# 5. Top 100 wallets by profit over the past year (~10K candidate wallets, ~5 min)
+python -m polymkt.top_traders              # -> reports/top_traders.md, top_traders.csv
 ```
 
 `data/` is git-ignored; rerun the fetchers to rebuild it. Load it for your own
@@ -47,5 +53,9 @@ outcome, 0 to 1).
   50/50 resolutions are left empty.
 - Multi-outcome events (e.g. "Who will win X?") are stored as many binary
   markets, one per candidate.
+- Past-year trader profit is the change in each wallet's P&L series, which
+  lags by up to a day. Wallets are drawn from the all-time profit and volume
+  leaderboards (top 6,000 each), so a wallet that profited this year after big
+  earlier losses and low volume could be missed.
 - The APIs are undocumented in places and can change; field names here match
   what they returned in October 2026.
