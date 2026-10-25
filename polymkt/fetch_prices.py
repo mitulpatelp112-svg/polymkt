@@ -34,7 +34,8 @@ def fetch_one(market_id, token, fidelity):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--min-volume", type=float, default=100_000, help="USD lifetime volume floor")
-    ap.add_argument("--fidelity", type=int, default=1440, help="bar size in minutes (1440 = daily)")
+    ap.add_argument("--fidelity", type=int, default=1440, help="bar size in minutes (1440 = daily). Finer bars come back "
+                    "empty for most closed markets with the full-history query")
     ap.add_argument("--workers", type=int, default=32)
     args = ap.parse_args()
 

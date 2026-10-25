@@ -155,8 +155,7 @@ def calibration_section(markets, out):
                "close prices get to the answer. Long-dated markets - mostly \"Will X happen "
                "by date?\" questions that resolve No and sit at low prices - dominate the "
                "7- and 30-day snapshots, which is why those scores look better. Compare "
-               "categories rather than snapshots. For finer timing, refetch with "
-               "`--fidelity 60`.\n")
+               "categories rather than snapshots.\n")
 
 
 def main():
@@ -185,7 +184,7 @@ def main():
            f"{(m.resolved_yes == 0).sum():,} |",
            f"| Still open | {(~m.closed.astype(bool)).sum():,} |",
            f"| Total lifetime volume | {usd(m.volumeNum.sum())} |",
-           f"| Median volume per market | {usd(m.volumeNum.median())} |",
+           f"| Median volume per traded market | {usd(m.volumeNum[m.volumeNum > 0].median())} |",
            f"| Markets with >= $10K volume | {(m.volumeNum >= 1e4).sum():,} |",
            f"| Markets with >= $1M volume | {(m.volumeNum >= 1e6).sum():,} |", ""]
 
