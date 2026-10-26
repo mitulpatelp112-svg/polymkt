@@ -23,12 +23,23 @@ python -m polymkt.fetch_prices             # -> data/prices.parquet
 # 3. Report and charts
 python -m polymkt.analyze                  # -> reports/summary.md + reports/*.png
 
-# 4. Every single trade of $1M+ (scans the ~9.5K markets with $1M+ volume, ~5 min)
+# 4. Every single trade of $100K+ (scans the ~95K markets with $100K+ volume, ~30 min)
 python -m polymkt.fetch_big_trades         # -> reports/big_trades.md, big_trades.csv
+#    --min-cash 1000000 for $1M+ only
 
 # 5. Top 100 wallets by profit over the past year (~10K candidate wallets, ~5 min)
 python -m polymkt.top_traders              # -> reports/top_traders.md, top_traders.csv
+
+# 6. Trade histories of the top 100, and of the 100 biggest losers as a control (~15 min each)
+python -m polymkt.fetch_wallet_trades      # -> data/wallet_trades.parquet
+python -m polymkt.fetch_wallet_trades --losers 100
+
+# 7. Strategy and integrity tests (insider, in-play, market making, wash trading, copying)
+python -m polymkt.strategies               # -> reports/strategies.md, wallet_profiles.csv
+python -m polymkt.insider_screen           # -> reports/insider_screen.md (~10 min)
 ```
+
+Start with `reports/FINDINGS.md`, a written summary of what these show.
 
 `data/` is git-ignored; rerun the fetchers to rebuild it. Load it for your own
 analysis with `pd.read_parquet("data/markets.parquet")`.

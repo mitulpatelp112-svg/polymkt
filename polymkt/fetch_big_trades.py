@@ -7,10 +7,11 @@ trades, so a big bet split across fills under the threshold is not counted.
 
 Output: data/big_trades.parquet
 
-    python -m polymkt.fetch_big_trades [--min-cash 1000000] [--workers 32]
+    python -m polymkt.fetch_big_trades [--min-cash 100000] [--start 2025-10-25] [--workers 32]
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
@@ -36,7 +37,9 @@ def big_trades(condition_id, min_cash):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--min-cash", type=float, default=1_000_000)
+    ap.add_argument("--min-cash", type=float, default=100_000)
+    ap.add_argument("--start", default=(datetime.now(timezone.utc) - timedelta(days=365))
+                    .date().isoformat(), help="drop trades before this date")
     ap.add_argument("--workers", type=int, default=32)
     args = ap.parse_args()
 
@@ -44,13 +47,19 @@ def main():
     todo = markets[markets.volumeNum >= args.min_cash].dropna(subset=["conditionId"])
     print(f"Scanning {len(todo):,} markets", flush=True)
 
+    rows = []
     with ThreadPoolExecutor(args.workers) as pool:
         found = pool.map(lambda c: big_trades(c, args.min_cash), todo.conditionId)
-        rows = [{c: t.get(c) for c in COLS} for page in found for t in page]
+        for n, page in enumerate(found, 1):
+            rows += [{c: t.get(c) for c in COLS} for t in page]
+            if n % 5000 == 0:
+                print(f"  {n:,}/{len(todo):,} markets, {len(rows):,} trades", flush=True)
 
     df = pd.DataFrame(rows, columns=COLS).drop_duplicates()
     df["cash"] = df["size"] * df["price"]
     df["time"] = pd.to_datetime(df["timestamp"], unit="s", utc=True)
+    # Markets ending in the window can have trades from before it.
+    df = df[df.time >= pd.Timestamp(args.start, tz="UTC")]
     df = df.merge(todo[["conditionId", "tags"]], on="conditionId", how="left")
     df.to_parquet(DATA / "big_trades.parquet", index=False)
     print(f"Saved {len(df):,} trades of >= ${args.min_cash:,.0f} to {DATA / 'big_trades.parquet'}")
@@ -66,21 +75,20 @@ def write_report(df, big_markets, min_cash):
            f"**{len(df):,} trades** worth **{usd(df.cash.sum())}** from "
            f"**{df.proxyWallet.nunique():,} wallets**, {df.time.min():%Y-%m-%d} to "
            f"{df.time.max():%Y-%m-%d}. Found by scanning all {len(big_markets):,} markets "
-           f"in the window with at least {usd(min_cash)} of lifetime volume (full list in "
-           "`reports/markets_1m.csv`). Cash = shares x price. One order can fill as "
+           f"in the window with at least {usd(min_cash)} of lifetime volume. Cash = shares x price. One order can fill as "
            "several smaller trades, so big bets split that way are not counted.\n",
            f"{near_certain:.0%} of these were at 99c or higher: large money parked on "
            "near-certain outcomes for a sub-1% return, or exiting such positions.\n",
-           "## Biggest whales by $1M+ trades\n",
+           f"## Biggest whales by {usd(min_cash)}+ trades\n",
            "| Trader | Trades | Total |\n|---|---:|---:|"]
     by = df.groupby(["proxyWallet", "name"], dropna=False).cash.agg(["size", "sum"])
     for (w, n), r in by.sort_values("sum", ascending=False).head(20).iterrows():
         n = n if n and not str(n).startswith("0x") else w[:10] + "..."
         out.append(f"| [{n}](https://polymarket.com/profile/{w}) | {int(r['size'])} | {usd(r['sum'])} |")
-    out += ["", "## Every trade\n",
+    out += ["", "## The 500 largest trades\n" if len(df) > 500 else "## Every trade\n",
             "| Date | Trader | Side | Outcome | Price | Cash | Market |",
             "|---|---|---|---|---:|---:|---|"]
-    for r in df.itertuples():
+    for r in df.head(500).itertuples():
         n = r.name if r.name and not str(r.name).startswith("0x") else r.proxyWallet[:10] + "..."
         out.append(f"| {r.time:%Y-%m-%d} | [{n}](https://polymarket.com/profile/{r.proxyWallet}) "
                    f"| {r.side} | {r.outcome} | {r.price:.3f} | {usd(r.cash)} | "
